@@ -64,4 +64,5 @@ pub use async_process as process;
 pub mod prelude;
 
 mod spawn;
+pub use spawn::scope;
 pub use spawn::spawn;
