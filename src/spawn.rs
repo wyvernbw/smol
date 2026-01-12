@@ -34,7 +34,7 @@ pub fn spawn<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static
     global().spawn(future)
 }
 
-pub fn scope<'e, R>(callback: impl Fn(&mut Scope<'e>) -> R) -> impl Future<Output = R> {
+pub fn scope<'e, R>(callback: impl FnOnce(&mut Scope<'e>) -> R) -> impl Future<Output = R> {
     global().scope(callback)
 }
 
