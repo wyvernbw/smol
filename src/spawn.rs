@@ -3,7 +3,7 @@ use std::panic::catch_unwind;
 use std::sync::OnceLock;
 use std::thread;
 
-use async_executor::{Executor, Task};
+use async_executor::{Executor, Scope, Task};
 use async_io::block_on;
 use futures_lite::future;
 
@@ -31,34 +31,38 @@ use futures_lite::future;
 /// });
 /// ```
 pub fn spawn<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static) -> Task<T> {
-    static GLOBAL: OnceLock<Executor<'_>> = OnceLock::new();
-
-    fn global() -> &'static Executor<'static> {
-        GLOBAL.get_or_init(|| {
-            let num_threads = {
-                // Parse SMOL_THREADS or default to 1.
-                std::env::var("SMOL_THREADS")
-                    .ok()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(1)
-            };
-
-            for n in 1..=num_threads {
-                thread::Builder::new()
-                    .name(format!("smol-{}", n))
-                    .spawn(|| loop {
-                        catch_unwind(|| block_on(global().run(future::pending::<()>()))).ok();
-                    })
-                    .expect("cannot spawn executor thread");
-            }
-
-            // Prevent spawning another thread by running the process driver on this thread.
-            let ex = Executor::new();
-            #[cfg(not(target_os = "espidf"))]
-            ex.spawn(async_process::driver()).detach();
-            ex
-        })
-    }
-
     global().spawn(future)
+}
+
+pub fn scope<'e, R>(callback: impl Fn(&mut Scope<'e>) -> R) -> impl Future<Output = R> {
+    global().scope(callback)
+}
+
+static GLOBAL: OnceLock<Executor<'_>> = OnceLock::new();
+
+fn global() -> &'static Executor<'static> {
+    GLOBAL.get_or_init(|| {
+        let num_threads = {
+            // Parse SMOL_THREADS or default to 1.
+            std::env::var("SMOL_THREADS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(1)
+        };
+
+        for n in 1..=num_threads {
+            thread::Builder::new()
+                .name(format!("smol-{}", n))
+                .spawn(|| loop {
+                    catch_unwind(|| block_on(global().run(future::pending::<()>()))).ok();
+                })
+                .expect("cannot spawn executor thread");
+        }
+
+        // Prevent spawning another thread by running the process driver on this thread.
+        let ex = Executor::new();
+        #[cfg(not(target_os = "espidf"))]
+        ex.spawn(async_process::driver()).detach();
+        ex
+    })
 }
