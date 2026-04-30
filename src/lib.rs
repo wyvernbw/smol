@@ -55,7 +55,20 @@ pub use {
 };
 
 #[doc(inline)]
-pub use {async_channel as channel, async_fs as fs, async_lock as lock, async_net as net};
+#[cfg(feature = "channel")]
+pub use async_channel as channel;
+
+#[doc(inline)]
+#[cfg(feature = "fs")]
+pub use async_fs as fs;
+
+#[doc(inline)]
+#[cfg(feature = "lock")]
+pub use async_lock as lock;
+
+#[doc(inline)]
+#[cfg(feature = "net")]
+pub use async_net as net;
 
 #[cfg(not(target_os = "espidf"))]
 #[doc(inline)]
